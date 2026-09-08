@@ -49,4 +49,15 @@ describe('AuthScreen email verification', () => {
     }))
     expect(await screen.findByText('Email verified. Sign in to continue.')).toBeInTheDocument()
   })
+
+  it('lets an existing user open verification directly from sign in', () => {
+    const auth = makeAuth()
+    render(<AuthScreen auth={auth} configured />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Have a verification code?' }))
+
+    expect(screen.getByRole('heading', { name: 'Verify your email' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toBeInTheDocument()
+    expect(screen.getByLabelText('Verification code')).toBeInTheDocument()
+  })
 })

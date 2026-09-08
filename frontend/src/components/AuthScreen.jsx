@@ -10,10 +10,16 @@ export function AuthScreen({ auth, configured }) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
 
-  function showVerification() {
+  function isVerificationRequired(authError) {
+    const code = authError?.code || authError?.error?.code
+    const detail = `${authError?.message || ''} ${authError?.error?.message || ''}`
+    return code === 'EMAIL_NOT_VERIFIED' || /email.+verif/i.test(detail)
+  }
+
+  function showVerification(message = '') {
     setVerificationCode('')
     setError('')
-    setMessage(`We sent a 6-digit verification code to ${form.email.trim()}.`)
+    setMessage(message)
     setMode('verify')
   }
 
@@ -26,10 +32,14 @@ export function AuthScreen({ auth, configured }) {
         ? await auth.signUp.email({ name: form.name.trim(), email: form.email.trim(), password: form.password })
         : await auth.signIn.email({ email: form.email.trim(), password: form.password })
       if (result?.error) {
-        if (result.error.code === 'EMAIL_NOT_VERIFIED') return showVerification()
+        if (mode === 'sign-in' && isVerificationRequired(result.error)) {
+          return showVerification(`Enter the verification code sent to ${form.email.trim()}.`)
+        }
         throw new Error(result.error.message || 'Authentication failed.')
       }
-      if (mode === 'sign-up' && !result?.data?.token) showVerification()
+      if (mode === 'sign-up' && !result?.data?.token) {
+        showVerification(`We sent a 6-digit verification code to ${form.email.trim()}.`)
+      }
     } catch (err) {
       setError(err.message || 'Could not sign in. Check your details and try again.')
     } finally { setBusy(false) }
@@ -91,7 +101,19 @@ export function AuthScreen({ auth, configured }) {
           <form className="auth-card" onSubmit={verify}>
             <p className="eyebrow">CHECK YOUR INBOX</p>
             <h2>Verify your email</h2>
-            <p className="auth-subtitle">Enter the code sent to <strong>{form.email.trim()}</strong>.</p>
+            <p className="auth-subtitle">Enter your email and the six-digit code Neon sent you.</p>
+            <div className="field">
+              <label htmlFor="verification-email">Email</label>
+              <input
+                id="verification-email"
+                type="email"
+                autoComplete="email"
+                required
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                placeholder="you@berkeley.edu"
+              />
+            </div>
             <div className="field">
               <label htmlFor="verification-code">Verification code</label>
               <input
@@ -113,7 +135,7 @@ export function AuthScreen({ auth, configured }) {
             </div>
             {message && <div className="form-message" role="status">{message}</div>}
             {error && <div className="form-error" role="alert">{error}</div>}
-            <Button type="submit" className="auth-submit" disabled={busy || verificationCode.length !== 6}>{busy ? 'Verifying…' : 'Verify email'} <ArrowRight size={17} /></Button>
+            <Button type="submit" className="auth-submit" disabled={busy || verificationCode.length !== 6 || !form.email.trim()}>{busy ? 'Verifying…' : 'Verify email'} <ArrowRight size={17} /></Button>
             <p className="auth-switch">Didn’t get it? <button type="button" disabled={busy} onClick={resendCode}>Resend code</button></p>
             <p className="auth-switch"><button type="button" onClick={() => switchMode('sign-in')}>Back to sign in</button></p>
           </form>
@@ -128,6 +150,7 @@ export function AuthScreen({ auth, configured }) {
             {message && <div className="form-message" role="status">{message}</div>}
             {error && <div className="form-error" role="alert">{error}</div>}
             <Button type="submit" className="auth-submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'sign-in' ? 'Sign in' : 'Create account'} <ArrowRight size={17} /></Button>
+            {mode === 'sign-in' && <p className="auth-switch"><button type="button" onClick={() => showVerification()}>Have a verification code?</button></p>}
             <p className="auth-switch">{mode === 'sign-in' ? 'New here?' : 'Already have an account?'} <button type="button" onClick={() => switchMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}>{mode === 'sign-in' ? 'Create an account' : 'Sign in'}</button></p>
           </form>
         )}
