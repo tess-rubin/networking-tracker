@@ -2,7 +2,7 @@
 
 Bear Connect is a private relationship tracker for Berkeley students and community members. After signing in, each person can save the people they want to remember, including where they met, company, role, notes, and follow-up priority. A React interface talks to a separate Node.js API, while Neon Postgres Row Level Security ensures that every signed-in user can access only their own contacts.
 
-> **Live application:** Add the production Vercel URL here after deployment.
+> **Live application:** [https://networking-tracker-tan.vercel.app](https://networking-tracker-tan.vercel.app)
 
 ## Product walkthrough
 
@@ -146,7 +146,8 @@ The script signs both users in, creates one contact per user, proves cross-user 
 - [x] Every exposed contacts operation is protected by its own RLS policy
 - [x] Update uses `WITH CHECK` to prevent ownership changes
 - [ ] Production two-account RLS script run recorded after Neon is configured
-- [ ] Public repository and live Vercel links added before submission
+- [x] Live Vercel link added
+- [ ] Repository visibility changed from private to public before submission, if the grader requires public access
 
 ## Known limitations and next improvements
 
