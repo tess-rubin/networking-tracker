@@ -41,6 +41,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [role="combob
 .field input[aria-invalid="true"] { border-color: var(--danger); }
 .field-error { color: var(--danger); font-size: .8rem; }
 .form-error { color: #852f28; background: #fff0ed; border: 1px solid #f4c9c3; padding: 10px 12px; border-radius: 8px; font-size: .86rem; }
+.form-message { color: #245c46; background: #eef8f2; border: 1px solid #bddfcb; padding: 10px 12px; border-radius: 8px; font-size: .86rem; }
 .select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; }
 .select-content { min-width: var(--radix-select-trigger-width); z-index: 100; padding: 5px; border-radius: 9px; background: #fff; border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(16,40,31,.16); }
 .select-item { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 9px 10px; border-radius: 6px; font-size: .88rem; outline: 0; }
@@ -63,6 +64,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [role="combob
 .auth-submit { width: 100%; margin-top: 3px; }
 .auth-switch { color: var(--muted); text-align: center; font-size: .88rem; }
 .auth-switch button, .clear-button { border: 0; padding: 0; color: var(--green-700); background: none; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
+.auth-switch button:disabled { color: var(--muted); cursor: not-allowed; }
+.verification-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.35rem !important; font-weight: 750; letter-spacing: .35em; text-align: center; }
+.field-help { margin: 7px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .app-loading { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 15px; color: var(--muted); }
 .topbar { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(20px, 4vw, 58px); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); }
 .account { display: flex; align-items: center; gap: 10px; color: #47534d; font-size: .88rem; }
@@ -149,4 +153,3 @@ td small { display: flex; align-items: center; gap: 4px; color: #7a8680; margin-
   .modal { padding: 21px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-
