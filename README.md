@@ -5,6 +5,26 @@ Bear Connect is a private relationship tracker for Berkeley students and communi
 - **Live application:** [https://networking-tracker-tan.vercel.app](https://networking-tracker-tan.vercel.app)
 - **Public repository:** [https://github.com/tess-rubin/networking-tracker](https://github.com/tess-rubin/networking-tracker)
 
+## Screenshots
+
+### Sign in
+
+The opening screen lets an existing user sign in or move to account creation or email verification.
+
+![Bear Connect sign-in screen](docs/screenshots/sign-in.png)
+
+### Create an account
+
+New users enter their name, email address, and password before confirming their email.
+
+![Bear Connect account-creation screen](docs/screenshots/create-account.png)
+
+### Verify an email address
+
+Users can enter the six-digit code sent by Neon, request a new code, or return to sign in.
+
+![Bear Connect email-verification screen](docs/screenshots/email-verification.png)
+
 ## Product walkthrough
 
 1. Select **Create an account**, enter a name, email, and password, and submit the six-digit email verification code. Existing users can select **Have a verification code?** if they need to resume verification.
