@@ -161,6 +161,7 @@ Copy `.env.example`; do not place real credentials in Git. Only the endpoint nam
 | `NEON_AUTH_COOKIE_SECRET` | **Server secret** | Reserved for signed server-cookie integrations; use at least 32 random characters. |
 | `TEST_USER_A_EMAIL` / `TEST_USER_A_PASSWORD` | **Test secrets** | Dedicated first account for the live RLS test. |
 | `TEST_USER_B_EMAIL` / `TEST_USER_B_PASSWORD` | **Test secrets** | Dedicated second account for the live RLS test. |
+| `TEST_APP_ORIGIN` | Test configuration | Trusted application origin sent by the standalone RLS test; defaults to `http://localhost:5173`. |
 
 The two `VITE_` values are HTTPS service endpoints, not database passwords. `DATABASE_URL`, cookie secrets, and test-account passwords must remain only in local or Vercel environment configuration.
 
@@ -235,7 +236,7 @@ Verified against the live Vercel application on September 8, 2026:
 - Sign-out returned the user to the sign-in screen.
 - The production deployment exposed both `api/contacts/index` and `api/contacts/item`; authenticated create, edit, and delete requests completed through those Node functions.
 
-The deterministic suite and production build passed during this verification. The separate live two-account test below remains an explicit submission step because it requires two dedicated verified account credentials that are intentionally not stored in Git.
+The deterministic suite and production build passed during this verification. The separate live two-account test below also passed using two dedicated verified accounts whose credentials remain only in an ignored local environment file.
 
 ### Live two-account RLS test
 
@@ -249,6 +250,14 @@ npm run test:rls
 ```
 
 The integration script signs in both users, creates one contact for each, proves each account can read only its own row, attempts a cross-user update and delete, confirms ownership transfer is rejected, and cleans up each account’s own record. The script exits nonzero on any isolation failure.
+
+Because browsers add an `Origin` header automatically but Node.js does not, the script explicitly sends `TEST_APP_ORIGIN` during authentication. That origin must appear in Neon Auth's trusted origins.
+
+Verified live result on September 8, 2026:
+
+```text
+PASS: users can read and modify only their own contacts; ownership transfer is blocked.
+```
 
 ## Deployment
 

@@ -1,6 +1,7 @@
-import { createClient, BetterAuthVanillaAdapter } from '@neondatabase/neon-js'
+import { createClient } from '@neondatabase/neon-js'
 
 const required = ['VITE_NEON_AUTH_URL', 'VITE_NEON_DATA_API_URL', 'TEST_USER_A_EMAIL', 'TEST_USER_A_PASSWORD', 'TEST_USER_B_EMAIL', 'TEST_USER_B_PASSWORD']
+const testOrigin = process.env.TEST_APP_ORIGIN || 'http://localhost:5173'
 
 const missing = required.filter((key) => !process.env[key])
 if (missing.length) {
@@ -8,15 +9,48 @@ if (missing.length) {
   process.exit(1)
 }
 
-function testClient() {
+function authEndpoint(path) {
+  return `${process.env.VITE_NEON_AUTH_URL.replace(/\/$/, '')}/${path}`
+}
+
+async function authenticate(email, password, label) {
+  const signIn = await fetch(authEndpoint('sign-in/email'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: testOrigin },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!signIn.ok) throw new Error(`${label} sign-in failed with status ${signIn.status}`)
+
+  const setCookies = signIn.headers.getSetCookie?.() || [signIn.headers.get('set-cookie')].filter(Boolean)
+  const cookie = setCookies.map((value) => value.split(';', 1)[0]).join('; ')
+  if (!cookie) throw new Error(`${label} sign-in did not return a session cookie`)
+
+  const sessionResponse = await fetch(authEndpoint('get-session'), {
+    headers: { Cookie: cookie, Origin: testOrigin },
+  })
+  if (!sessionResponse.ok) throw new Error(`${label} session failed with status ${sessionResponse.status}`)
+  const token = sessionResponse.headers.get('set-auth-jwt')
+  if (!token) throw new Error(`${label} session did not return a JWT`)
+
+  return {
+    token,
+    signOut: () => fetch(authEndpoint('sign-out'), {
+      method: 'POST',
+      headers: { Cookie: cookie, Origin: testOrigin },
+    }),
+  }
+}
+
+function testClient(token) {
   return createClient({
-    auth: { adapter: BetterAuthVanillaAdapter(), url: process.env.VITE_NEON_AUTH_URL },
-    dataApi: { url: process.env.VITE_NEON_DATA_API_URL },
+    dataApi: { url: process.env.VITE_NEON_DATA_API_URL, getToken: async () => token },
   })
 }
 
-const a = testClient()
-const b = testClient()
+const authA = await authenticate(process.env.TEST_USER_A_EMAIL, process.env.TEST_USER_A_PASSWORD, 'User A')
+const authB = await authenticate(process.env.TEST_USER_B_EMAIL, process.env.TEST_USER_B_PASSWORD, 'User B')
+const a = testClient(authA.token)
+const b = testClient(authB.token)
 let aId
 let bId
 
@@ -24,9 +58,6 @@ async function assertOk(result, label) {
   if (result?.error) throw new Error(`${label}: ${result.error.message}`)
   return result?.data
 }
-
-await assertOk(await a.auth.signIn.email({ email: process.env.TEST_USER_A_EMAIL, password: process.env.TEST_USER_A_PASSWORD }), 'User A sign-in')
-await assertOk(await b.auth.signIn.email({ email: process.env.TEST_USER_B_EMAIL, password: process.env.TEST_USER_B_PASSWORD }), 'User B sign-in')
 
 try {
   const rowA = await assertOk(await a.from('contacts').insert({ name: 'RLS Test — User A', priority: 'high' }).select().single(), 'Create A contact')
@@ -49,6 +80,6 @@ try {
 } finally {
   if (aId) await a.from('contacts').delete().eq('id', aId)
   if (bId) await b.from('contacts').delete().eq('id', bId)
-  await a.auth.signOut()
-  await b.auth.signOut()
+  await authA.signOut()
+  await authB.signOut()
 }
