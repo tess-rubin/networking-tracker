@@ -25,6 +25,46 @@ Users can enter the six-digit code sent by Neon, request a new code, or return t
 
 ![Bear Connect email-verification screen](docs/screenshots/email-verification.png)
 
+### Signed-in empty state
+
+After authentication, a new user sees an understandable empty dashboard with two clear ways to add a first contact.
+
+![Signed-in Bear Connect dashboard with an empty contact list](docs/screenshots/dashboard-empty.png)
+
+### Invalid contact input
+
+Submitting the contact form without a name displays a clear inline error and does not create a row.
+
+![Contact form showing the Name is required validation error](docs/screenshots/invalid-contact.png)
+
+### Create a contact
+
+A successful create displays the new contact in the sortable desktop table and confirms the operation with a toast.
+
+![Contact table showing a newly created synthetic contact and success toast](docs/screenshots/contact-created.png)
+
+### Edit and refresh persistence
+
+The contact can be edited successfully. After a full page reload, the edited values remain because the row is stored in Neon Postgres.
+
+![Contact table showing the edited synthetic contact and success toast](docs/screenshots/contact-edited.png)
+
+![Edited contact still present after a full browser refresh](docs/screenshots/contact-after-refresh.png)
+
+### Delete a contact
+
+Deletion requires an explicit confirmation. After confirmation, the success toast and empty state show that the synthetic row was removed.
+
+![Delete-contact confirmation dialog](docs/screenshots/delete-confirmation.png)
+
+![Empty contact list after the synthetic contact was deleted](docs/screenshots/contact-deleted.png)
+
+### Sign out
+
+Signing out clears the authenticated dashboard and returns the user to the sign-in screen.
+
+![Bear Connect screen after signing out](docs/screenshots/signed-out.png)
+
 ## Product walkthrough
 
 1. Select **Create an account**, enter a name, email, and password, and submit the six-digit email verification code. Existing users can select **Have a verification code?** if they need to resume verification.
