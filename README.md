@@ -1,113 +1,182 @@
 # Bear Connect — Secure Networking Tracker
 
-Bear Connect is a private relationship tracker for Berkeley students and community members. After signing in, each person can save the people they want to remember, including where they met, company, role, notes, and follow-up priority. A React interface talks to a separate Node.js API, while Neon Postgres Row Level Security ensures that every signed-in user can access only their own contacts.
+Bear Connect is a private relationship tracker for Berkeley students and community members. A signed-in user can record who they met, where they met, the person’s company and role, private notes, and a follow-up priority. The responsive React interface communicates with Node.js API functions, Neon Managed Auth provides verified email/password accounts and sessions, and PostgreSQL Row Level Security (RLS) ensures each user can access only their own contacts.
 
-> **Live application:** [https://networking-tracker-tan.vercel.app](https://networking-tracker-tan.vercel.app)
+- **Live application:** [https://networking-tracker-tan.vercel.app](https://networking-tracker-tan.vercel.app)
+- **Public repository:** [https://github.com/tess-rubin/networking-tracker](https://github.com/tess-rubin/networking-tracker)
 
 ## Product walkthrough
 
-1. Create an account or sign in with email and password.
-2. Add a contact and record the context behind the introduction.
-3. Search by name, company, role, or meeting place; filter by priority; and sort the table.
-4. Edit or delete a contact. The data remains available after refresh and future sign-ins.
-5. Sign out to return to the authentication screen.
-
-Add final desktop and mobile screenshots here after the production environment is connected.
+1. Select **Create an account**, enter a name, email, and password, and submit the six-digit email verification code. Existing users can select **Have a verification code?** if they need to resume verification.
+2. After sign-in, the dashboard restores the authenticated session and loads only that user’s contacts.
+3. Select **Add contact** and record a name, company, role, where the introduction happened, notes, and a high/medium/low priority.
+4. Search across name, company, role, and meeting place; filter by priority; or sort by name, company, role, priority, or most recent update.
+5. Edit a saved contact or delete it through an accessible confirmation dialog. Data persists in Neon after refresh, sign-out, and later sign-in.
+6. On smaller screens the desktop table becomes touch-friendly contact cards with the same actions and information.
 
 ## Features
 
-- Managed signup, sign-in, persistent session, and sign-out through Neon Auth (Better Auth)
-- Private contacts with create, view, edit, and delete workflows
-- Server-side search, priority filtering, and sorting
-- Desktop table and mobile card layouts
-- Clear loading, empty, filtered-empty, success, validation, and failure states
-- Browser and Node validation with a database constraint as the final data-integrity layer
-- Per-operation PostgreSQL RLS policies for defense-in-depth ownership enforcement
-- Automated validation/API tests and an optional live two-account RLS test
+- Email/password signup, six-digit email verification, sign-in, session restoration, and sign-out
+- Authenticated create, read, update, and delete operations for contacts
+- Server-side search, priority filtering, and allowlisted sorting
+- Responsive desktop table and mobile card layouts
+- Loading skeletons, empty states, filtered-no-results states, inline validation, success toasts, and safe error messages
+- Shared Zod validation in the browser-facing API contract and Node.js functions
+- PostgreSQL constraints, update timestamp trigger, supporting indexes, and per-operation RLS policies
+- Strict rejection of browser-supplied ownership fields such as `userId`
+- Deterministic Vitest coverage plus an opt-in live two-account RLS integration test
 
-## Technology and architecture
+## Technology stack
 
-| Layer | Technology | Why |
+| Layer | Technology | Why it was chosen |
 | --- | --- | --- |
-| Frontend | React 19, Vite, JavaScript | Fast, focused SPA development with a small production bundle |
-| UI | Tailwind CSS, Radix/shadcn-style primitives, Lucide, Sonner | Responsive styling and accessible dialogs, selects, confirmations, and feedback |
-| Backend | Node.js Vercel Functions | Keeps validation and response handling separate from the React application |
-| Validation | Zod | One explicit allowlist shared by browser and API code |
-| Authentication | Neon Managed Auth, built on Better Auth | Managed user accounts and JWTs compatible with the Neon Data API |
-| Database | Neon Postgres + Data API | Durable relational data, authenticated HTTPS access, and database-level RLS |
-| Hosting | Vercel | Hosts the static Vite build and Node API functions from one repository |
+| Frontend | React 19 + Vite + JavaScript | React supports a component-based interactive UI; Vite provides a fast development server and optimized static build. |
+| Styling/UI | Tailwind CSS, Radix/shadcn-style primitives, Lucide, Sonner | Provides responsive styling, accessible dialogs/selects, consistent icons, and understandable toast feedback. |
+| Backend | Node.js Vercel Functions | Keeps authentication checks, validation, and database access behind explicit HTTP endpoints while deploying with the SPA. |
+| Validation | Zod | Defines small, auditable allowlists for request bodies and query parameters. |
+| Authentication | Neon Managed Auth (Better Auth) | Provides managed email/password accounts, email verification, session persistence, and JWTs that Neon Data API can validate. |
+| Database | Neon Serverless Postgres + Neon Data API | Supplies durable relational storage and authenticated HTTPS database access with native PostgreSQL RLS. |
+| Hosting | Vercel | Builds the Vite SPA and deploys the Node API functions together from the GitHub repository. |
+| Testing | Vitest + React Testing Library | Covers validation, authentication boundaries, session-token retrieval, and the email-verification UI quickly and deterministically. |
+
+## Architecture
 
 ```text
-Browser
-  ├─ Neon Auth endpoint: signup, sign-in, session, JWT, sign-out
-  └─ /api/contacts + JWT
-       └─ Node.js function: authentication presence + Zod validation
-            └─ Neon Data API: validates JWT
-                 └─ Postgres RLS: auth.user_id() must equal contacts.user_id
+React browser client
+  ├── Neon Managed Auth
+  │     ├── signup / email verification / sign-in / sign-out
+  │     └── getSession() → authenticated JWT
+  │
+  └── /api/contacts + Authorization: Bearer <JWT>
+        └── Node.js Vercel Function
+              ├── requires a bearer token
+              ├── validates bodies and query parameters with Zod
+              └── Neon Data API + the same JWT
+                    └── Neon Postgres
+                          └── RLS compares auth.user_id() with contacts.user_id
 ```
 
-The browser never sends or chooses a `user_id`. The Node API forwards the current short-lived JWT through `@neondatabase/neon-js`; the Data API exposes the verified identity through `auth.user_id()`. RLS, not a client-supplied filter, is the final authorization boundary.
+The repository deploys as one Vercel project. `frontend/` is compiled to the static `dist/` directory, while files under `api/` become Node.js functions. `vercel.json` preserves `/api/*` routes and rewrites all other paths to the React SPA.
 
-## Repository layout
+The browser never supplies or selects `user_id`. The React client obtains the signed-in session JWT and sends it to the Node API, which passes it to the Neon Data API. PostgreSQL derives the trusted identity through `auth.user_id()`. API-side validation is defense in depth; RLS is the final authorization boundary.
+
+### Authenticated API
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/contacts?q=&priority=&sort=&order=` | List, search, filter, and sort the current user’s contacts. |
+| `POST` | `/api/contacts` | Create a contact owned by the current user. |
+| `PATCH` | `/api/contacts/:id` | Update an accessible contact. |
+| `DELETE` | `/api/contacts/:id` | Delete an accessible contact. |
+
+Successful responses use `{ "data": ..., "message"?: ... }`. Failures use `{ "error": { "code": ..., "message": ..., "fields"?: ... } }` with safe `400`, `401`, `404`, `405`, or `500` status codes as appropriate.
+
+### Repository layout
 
 ```text
-frontend/       React UI and auth session
-api/            Node.js Vercel Functions
-shared/         Allowlisted contact/query validation
-database/       Versioned Postgres migration and migration runner
-tests/          Unit, API, and live RLS tests
-vercel.json     Vercel build, function, and SPA routing
+frontend/       React/Vite application and authentication UI
+api/            Node.js Vercel Functions and server helpers
+shared/         Zod contact and query validation
+database/       Versioned SQL migration and migration runner
+tests/          Unit, component, API-boundary, and live RLS tests
+vercel.json     Production build and routing configuration
 ```
 
 ## Local setup
 
-Prerequisites: Node.js 20+, npm, and a Neon project with Managed Auth and the Data API enabled for the same branch.
+### Prerequisites
 
-1. Clone this repository and enter it.
-2. Run `npm install`.
-3. Copy `.env.example` to `.env.local` and replace placeholders. Never commit `.env.local`.
-4. In the Neon console, enable email/password authentication, add `http://localhost:5173` as a trusted origin, and configure the Data API to use Neon Auth.
-5. Load environment variables into your shell and run `npm run db:migrate` once.
-6. Run `npx vercel dev` to serve the Vite frontend and Node functions together. For frontend-only work, `npm run dev` runs Vite, but contact requests still require an API on port 3000.
-7. Open the local URL shown in the terminal.
+- Node.js 20 or newer and npm
+- A Neon project with **Neon Auth** and **Data API** enabled on the same branch
+- Email/password authentication enabled in Neon Auth
+- `http://localhost:5173` added to Neon Auth trusted origins
+- Vercel CLI access for full local API emulation and deployment
 
-### Environment variables
+### Install and configure
 
-| Variable | Visibility | Purpose |
+```bash
+git clone https://github.com/tess-rubin/networking-tracker.git
+cd networking-tracker
+npm install
+cp .env.example .env.local
+```
+
+Open `.env.local` and replace the placeholders with values from your own Neon project. Never commit this file.
+
+Apply the database migration once to the Neon branch named by `DATABASE_URL`:
+
+```bash
+set -a
+source .env.local
+set +a
+npm run db:migrate
+```
+
+Start the React development server:
+
+```bash
+npm run dev
+```
+
+Then open [http://localhost:5173](http://localhost:5173). This command is sufficient for frontend and authentication work. The Vite configuration forwards `/api/*` to port `3000`, so full local contact CRUD also requires the Vercel Functions runtime. Run `npx vercel dev --listen 3000` in a separate terminal, or use `npx vercel dev` by itself and open the full-stack URL it prints.
+
+## Environment variables
+
+Copy `.env.example`; do not place real credentials in Git. Only the endpoint names and placeholders belong in the repository.
+
+### Required for the application
+
+| Variable | Exposure | Purpose |
 | --- | --- | --- |
-| `VITE_NEON_AUTH_URL` | Browser-safe HTTPS endpoint | Neon Managed Auth endpoint |
-| `VITE_NEON_DATA_API_URL` | Browser-safe HTTPS endpoint | Neon Data API `/rest/v1` endpoint; also used by Node functions |
-| `NEON_AUTH_BASE_URL` | Server only | Reserved for server-side Neon Auth integrations |
-| `NEON_AUTH_COOKIE_SECRET` | Server only | At least 32 random characters; reserved for signed server session cookies |
-| `DATABASE_URL` | Server only | Direct Postgres connection used only to apply migrations |
-| `ALLOWED_ORIGIN` | Server only | Optional comma-separated origins for cross-origin API development |
-| `TEST_USER_A_EMAIL/PASSWORD` | Server/test only | Dedicated first RLS test account |
-| `TEST_USER_B_EMAIL/PASSWORD` | Server/test only | Dedicated second RLS test account |
+| `VITE_NEON_AUTH_URL` | Browser-safe public URL | Neon Managed Auth endpoint ending in `/auth`. |
+| `VITE_NEON_DATA_API_URL` | Browser-safe public URL | Neon Data API endpoint ending in `/rest/v1`; Node functions use the same endpoint. |
+| `DATABASE_URL` | **Server secret** | Direct PostgreSQL connection used only by `npm run db:migrate`. It must never be exposed with a `VITE_` prefix. |
 
-The Vite-prefixed values are public URLs, not secrets. `DATABASE_URL`, cookie secrets, and passwords must exist only in local/Vercel environment configuration.
+### Optional or workflow-specific
 
-## Database schema and authorization
-
-The migration in `database/001_contacts.sql` creates:
-
-| Column | Type | Rules |
+| Variable | Exposure | Purpose |
 | --- | --- | --- |
-| `id` | `uuid` | Primary key; defaults to `gen_random_uuid()` |
-| `user_id` | `text` | Not null; defaults to `auth.user_id()` |
-| `name` | `text` | Not null; trimmed value cannot be empty |
-| `company` | `text` | Not null; defaults to an empty string |
-| `role` | `text` | Not null; defaults to an empty string |
-| `where_met` | `text` | Not null; defaults to an empty string |
-| `notes` | `text` | Not null; defaults to an empty string |
-| `priority` | `text` | `high`, `medium`, or `low`; defaults to `medium` |
-| `created_at` | `timestamptz` | Defaults to the current time |
-| `updated_at` | `timestamptz` | Maintained by an update trigger |
+| `ALLOWED_ORIGIN` | Server configuration | Comma-separated cross-origin frontend URLs. Same-origin production requests do not require it. |
+| `NEON_AUTH_BASE_URL` | Server configuration | Reserved for server-side Neon Auth integrations. |
+| `NEON_AUTH_COOKIE_SECRET` | **Server secret** | Reserved for signed server-cookie integrations; use at least 32 random characters. |
+| `TEST_USER_A_EMAIL` / `TEST_USER_A_PASSWORD` | **Test secrets** | Dedicated first account for the live RLS test. |
+| `TEST_USER_B_EMAIL` / `TEST_USER_B_PASSWORD` | **Test secrets** | Dedicated second account for the live RLS test. |
 
-RLS is enabled and forced. Four separate policies apply to the `authenticated` role:
+The two `VITE_` values are HTTPS service endpoints, not database passwords. `DATABASE_URL`, cookie secrets, and test-account passwords must remain only in local or Vercel environment configuration.
 
-- Select and delete use `USING (auth.user_id() = user_id)`.
-- Insert uses `WITH CHECK (auth.user_id() = user_id)`.
-- Update uses the ownership expression in both `USING` and `WITH CHECK`, so a user cannot edit another user's row or transfer ownership of their own row.
+## Database schema
+
+The versioned migration is [`database/001_contacts.sql`](database/001_contacts.sql).
+
+| Column | PostgreSQL type | Constraints/default |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key; defaults to `gen_random_uuid()`. |
+| `user_id` | `text` | Not null; defaults to the authenticated identity from `auth.user_id()`. |
+| `name` | `text` | Not null; `btrim(name)` must contain at least one character. |
+| `company` | `text` | Not null; defaults to `''`. |
+| `role` | `text` | Not null; defaults to `''`. |
+| `where_met` | `text` | Not null; defaults to `''`. |
+| `notes` | `text` | Not null; defaults to `''`. |
+| `priority` | `text` | Not null; defaults to `medium`; restricted to `high`, `medium`, or `low`. |
+| `created_at` | `timestamptz` | Not null; defaults to `now()`. |
+| `updated_at` | `timestamptz` | Not null; defaults to `now()` and is refreshed by a `BEFORE UPDATE` trigger. |
+
+Indexes support recent-contact ordering, priority filtering, and case-insensitive name lookup within each user’s rows.
+
+## Authentication and RLS ownership
+
+Neon Managed Auth handles account creation, six-digit email verification, sign-in, session restoration, and sign-out. The React app calls the public `getSession()` API and sends the returned JWT to the Node API in the `Authorization` header. The Node function rejects requests without a bearer token and uses that token when calling Neon Data API.
+
+RLS is enabled and forced on `public.contacts`. Four policies apply to the `authenticated` role:
+
+| Operation | Policy rule | Security effect |
+| --- | --- | --- |
+| `SELECT` | `USING (auth.user_id() = user_id)` | A user can read only their own rows. |
+| `INSERT` | `WITH CHECK (auth.user_id() = user_id)` | A row can be created only for the current identity. |
+| `UPDATE` | Matching `USING` and `WITH CHECK` expressions | A user cannot edit another user’s row or transfer ownership of their own row. |
+| `DELETE` | `USING (auth.user_id() = user_id)` | A user can delete only their own rows. |
+
+The contact request schema is strict and does not accept `userId` or `user_id`; ownership comes exclusively from the authenticated database context.
 
 ## Testing
 
@@ -117,42 +186,61 @@ Run the deterministic suite:
 npm test
 ```
 
-It verifies blank-name rejection, the priority allowlist, trimming and field mapping, rejection of client-supplied ownership, safe sort parameters, unauthenticated API responses, and CORS preflight behavior.
+Current result: **13 tests passing across 4 test files**. The suite verifies:
 
-To prove live database isolation, create two ordinary test accounts, add their credentials only to the local environment variables above, then run:
+- Empty and whitespace-only names are rejected.
+- Unsupported priorities and unsafe sort/order values are rejected.
+- Valid text is trimmed and only allowlisted fields map to database columns.
+- Client-supplied ownership fields are rejected.
+- Unauthenticated contact requests return `401`; CORS preflight returns `204`.
+- Signup exposes the email-code form, verification submits the correct email/OTP shape, and existing users can reopen verification directly.
+- Session-token retrieval uses the public Better Auth `getSession()` method, returns the JWT, handles a missing session, and surfaces session errors.
+
+Confirm that the production bundle compiles with:
 
 ```bash
+npm run build
+```
+
+### Live two-account RLS test
+
+Create two dedicated, verified test accounts and set the four `TEST_USER_*` values only in your local environment. Then run:
+
+```bash
+set -a
+source .env.local
+set +a
 npm run test:rls
 ```
 
-The script signs both users in, creates one contact per user, proves cross-user reads/updates/deletes return no rows, proves ownership transfer fails, cleans up each user's own record, and signs out. Record the successful output or add a screenshot here before submission. The test intentionally requires a configured Neon branch and is not part of the offline unit suite.
+The integration script signs in both users, creates one contact for each, proves each account can read only its own row, attempts a cross-user update and delete, confirms ownership transfer is rejected, and cleans up each account’s own record. The script exits nonzero on any isolation failure.
 
-## Deploying to Vercel
+## Deployment
 
-1. Push the repository to a public GitHub repository and import it into Vercel.
-2. Add all required environment variables in Vercel. Use production Neon endpoints and never expose `DATABASE_URL` as a `VITE_` variable.
-3. Add the Vercel production and preview domains to Neon Auth's trusted origins.
-4. Apply the migration to the production Neon branch from a secure local shell or CI secret store.
-5. Deploy. `vercel.json` builds the Vite SPA, keeps `/api/*` on Node.js functions, and routes other paths to the SPA.
-6. On the live URL, verify signup/sign-in, CRUD, refresh persistence, filters, sorting, mobile layout, sign-out, and the two-account isolation test.
-7. Replace the placeholder Live application line and screenshot notes in this README.
+1. Fork or clone the repository and push it to GitHub.
+2. Import the repository into Vercel as one project. Keep the repository root as the Vercel root directory; `vercel.json` already specifies `npm run build` and `dist`.
+3. In Vercel project settings, add `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` for Production and Preview. Add `DATABASE_URL` only if a trusted deployment workflow will run migrations; otherwise keep it local.
+4. In Neon, add the Vercel production and preview domains to Auth trusted origins and confirm the Data API uses Neon Auth for authentication.
+5. Apply `database/001_contacts.sql` to the production branch with `npm run db:migrate` from a secure local shell or CI secret store.
+6. Push to the production branch to trigger the Git-integrated deployment, or deploy from the linked repository with `vercel --prod`.
+7. Verify the live signup/verification/sign-in flow, contact CRUD, refresh persistence, filtering/sorting, responsive layout, sign-out, and two-account RLS test.
 
-## Security checklist
+## Security notes
 
-- [x] No database connection string or cookie secret is referenced by browser code
-- [x] `.env*` is ignored except for placeholder-only `.env.example`
-- [x] API schemas reject unknown fields, including `userId`
-- [x] Data API calls carry a verified Neon Auth JWT
-- [x] Every exposed contacts operation is protected by its own RLS policy
-- [x] Update uses `WITH CHECK` to prevent ownership changes
-- [ ] Production two-account RLS script run recorded after Neon is configured
-- [x] Live Vercel link added
-- [ ] Repository visibility changed from private to public before submission, if the grader requires public access
+- No direct database credential is used in browser code.
+- `.env.local` and other real environment files are ignored; `.env.example` contains placeholders only.
+- API inputs and query parameters are allowlisted with Zod.
+- Browser-supplied ownership values are rejected.
+- Every contact operation is protected by a separate RLS policy.
+- Update has both `USING` and `WITH CHECK`, preventing ownership transfer.
+- Unexpected server/database errors are converted to safe JSON responses.
 
 ## Known limitations and next improvements
 
-- The first version uses email/password only; password recovery UI and OAuth are not customized.
-- Search covers contact identity/context fields but not long-form notes.
-- Contacts are loaded as one collection; cursor pagination would be the next scale improvement.
-- Automated browser end-to-end tests could supplement the unit and database isolation suites.
-- Final live screenshots and URLs depend on the owner's Neon, GitHub, and Vercel projects.
+- Authentication is email/password only. A polished password-reset flow and optional OAuth providers would improve account recovery and convenience.
+- Contacts are returned as one collection. Cursor pagination would be needed for large networks.
+- Search covers identity and meeting-context fields but not long-form notes; PostgreSQL full-text search would improve discovery.
+- The deterministic suite tests API boundaries without a disposable database. CI could provision a temporary Neon branch and run the live RLS test automatically.
+- Browser-level end-to-end tests could automate the full signup, verification, CRUD, filtering, refresh, and sign-out journey.
+- Route-level code splitting would reduce the current JavaScript bundle size as the application grows.
+- Accessibility can be strengthened with automated axe checks and additional screen-reader testing.
