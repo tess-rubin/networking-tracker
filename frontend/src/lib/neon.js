@@ -13,8 +13,9 @@ export const neon = isConfigured
     })
   : null
 
-export async function getAccessToken() {
-  if (!neon) return null
-  return neon.auth.getJWTToken?.() || null
+export async function getAccessToken(authClient = neon?.auth) {
+  if (!authClient) return null
+  const result = await authClient.getSession()
+  if (result?.error) throw new Error(result.error.message || 'Could not restore your session.')
+  return result?.data?.session?.token || null
 }
-
