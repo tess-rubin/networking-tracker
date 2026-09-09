@@ -86,8 +86,8 @@ The browser never supplies or selects `user_id`. The React client obtains the si
 | --- | --- | --- |
 | `GET` | `/api/contacts?q=&priority=&sort=&order=` | List, search, filter, and sort the current user’s contacts. |
 | `POST` | `/api/contacts` | Create a contact owned by the current user. |
-| `PATCH` | `/api/contacts/:id` | Update an accessible contact. |
-| `DELETE` | `/api/contacts/:id` | Delete an accessible contact. |
+| `PATCH` | `/api/contacts/item?id=<uuid>` | Update an accessible contact. |
+| `DELETE` | `/api/contacts/item?id=<uuid>` | Delete an accessible contact. |
 
 Successful responses use `{ "data": ..., "message"?: ... }`. Failures use `{ "error": { "code": ..., "message": ..., "fields"?: ... } }` with safe `400`, `401`, `404`, `405`, or `500` status codes as appropriate.
 
@@ -206,13 +206,14 @@ Run the deterministic suite:
 npm test
 ```
 
-Current result: **13 tests passing across 4 test files**. The suite verifies:
+Current result: **15 tests passing across 4 test files**. The suite verifies:
 
 - Empty and whitespace-only names are rejected.
 - Unsupported priorities and unsafe sort/order values are rejected.
 - Valid text is trimmed and only allowlisted fields map to database columns.
 - Client-supplied ownership fields are rejected.
 - Unauthenticated contact requests return `401`; CORS preflight returns `204`.
+- The static edit/delete route requires authentication and rejects malformed contact IDs before database access.
 - Signup exposes the email-code form, verification submits the correct email/OTP shape, and existing users can reopen verification directly.
 - Session-token retrieval uses the public Better Auth `getSession()` method, returns the JWT, handles a missing session, and surfaces session errors.
 

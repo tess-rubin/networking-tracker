@@ -35,13 +35,13 @@ export function Dashboard({ user, onSignOut }) {
   async function save(values, setErrors) {
     setBusy(true)
     try {
-      const payload = await apiRequest(editing ? `/api/contacts/${editing.id}` : '/api/contacts', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(values) })
+      const payload = await apiRequest(editing ? `/api/contacts/item?id=${encodeURIComponent(editing.id)}` : '/api/contacts', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(values) })
       toast.success(payload.message); setFormOpen(false); setEditing(undefined); await load()
     } catch (err) { if (err.fields) setErrors(err.fields); else setErrors({ form: err.message }) } finally { setBusy(false) }
   }
   async function remove() {
     setBusy(true)
-    try { const payload = await apiRequest(`/api/contacts/${deleting.id}`, { method: 'DELETE' }); toast.success(payload.message); setDeleting(null); await load() }
+    try { const payload = await apiRequest(`/api/contacts/item?id=${encodeURIComponent(deleting.id)}`, { method: 'DELETE' }); toast.success(payload.message); setDeleting(null); await load() }
     catch (err) { toast.error(err.message) } finally { setBusy(false) }
   }
   function toggleSort(field) { if (sort === field) setOrder(order === 'asc' ? 'desc' : 'asc'); else { setSort(field); setOrder(field === 'updated_at' ? 'desc' : 'asc') } }
