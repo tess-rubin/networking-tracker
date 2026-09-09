@@ -223,6 +223,20 @@ Confirm that the production bundle compiles with:
 npm run build
 ```
 
+### Production acceptance verification
+
+Verified against the live Vercel application on September 8, 2026:
+
+- A signed-in session loaded the private dashboard and an unauthenticated API request returned the expected `401` JSON response.
+- Submitting a contact without a name displayed the inline `Name is required` error and did not create a row.
+- A synthetic contact was created successfully, remained present after a full browser refresh, and was then edited successfully.
+- The edited contact was deleted through the confirmation dialog, and the list returned to its empty state with no demonstration data left behind.
+- The refreshed mobile layout displayed one card per contact with no horizontal overflow.
+- Sign-out returned the user to the sign-in screen.
+- The production deployment exposed both `api/contacts/index` and `api/contacts/item`; authenticated create, edit, and delete requests completed through those Node functions.
+
+The deterministic suite and production build passed during this verification. The separate live two-account test below remains an explicit submission step because it requires two dedicated verified account credentials that are intentionally not stored in Git.
+
 ### Live two-account RLS test
 
 Create two dedicated, verified test accounts and set the four `TEST_USER_*` values only in your local environment. Then run:
